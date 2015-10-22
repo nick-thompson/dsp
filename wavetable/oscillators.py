@@ -102,3 +102,69 @@ class ResamplingOscillator:
             playback_index += playback_rate
 
 
+class RealTimeResamplingOscillator:
+    """
+    The real time resampling approach introduces the same phase artifacts as
+    the ones introduced by the classic ResamplingOscillator, but does so in
+    real time so that it might be used in real synthesizers.
+
+    The approach differs only in that it does not use the intermediate buffer,
+    but rather computes the necessary sample frames of what would be the
+    intermediate buffer in order to complete the linear interpolation step
+    shown in the render method of the ResamplingOscillator.
+    """
+
+    def __init__(self, freq, detune, level):
+        cycles_per_sample = freq / 44100.0
+
+        self.freq = freq
+        self.detune = detune
+        self.incr = cycles_per_sample * TABLE_SIZE
+        self.level = level
+
+    def render(self, buf):
+        table_rate = self.incr
+        mask = TABLE_SIZE - 1
+
+        playback_rate = pow(2, self.detune / 1200.0)
+        playback_pointer = 0.0
+
+        for i in range(buf.size):
+            # Let x, y be indeces into what would be the intermediate buffer.
+            x = int(floor(playback_pointer))
+            y = x + 1
+
+            # Let omega, theta be the interpolation factors for the
+            # interpolation step on what would be read from the intermediate.
+            theta = playback_pointer - float(x)
+            omega = 1.0 - theta
+
+            # So, assuming an existing intermediate buffer, E, we could compute
+            # Si = buf[i] = (omega * E[x]) + (theta * E[y])
+            # We now derive E[x] and E[y] to avoid the intermediate buffer.
+
+            # Remember from the StandardOscillator,
+            # E[x] = (beta * table[a]) + (alpha * table[b])
+            a = int(floor(table_rate * x))
+            b = a + 1
+            alpha = (table_rate * x) - float(a)
+            beta = 1.0 - alpha
+            a_wrapped = a & mask
+            b_wrapped = b & mask
+            ex = (beta * table[a_wrapped]) + (alpha * table[b_wrapped])
+
+            # Now we need E[y], which we can derive the same way.
+            _a = int(floor(table_rate * y))
+            _b = (_a + 1)
+            _alpha = (table_rate * y) - float(_a)
+            _beta = 1.0 - _alpha
+            _a_wrapped = _a & mask
+            _b_wrapped = _b & mask
+            ey = (_beta * table[_a_wrapped]) + (_alpha * table[_b_wrapped])
+
+            # From above, we now compute Si
+            si = (omega * ex) + (theta * ey)
+            buf[i] += si * self.level
+            playback_pointer += playback_rate
+
+

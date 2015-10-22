@@ -3,7 +3,7 @@ import numpy as np
 
 from math import floor
 from wavetable.wavetable import table, gibbs_table
-from wavetable.oscillators import StandardOscillator, ResamplingOscillator
+from wavetable.oscillators import StandardOscillator, ResamplingOscillator, RealTimeResamplingOscillator
 
 x = np.linspace(0, 1, num=table.size, dtype='d')
 
@@ -35,4 +35,11 @@ diff[last_good_sample:] = 0.0
 diff /= np.max(np.abs(diff), axis=0)
 
 plt.plot(np.linspace(0, diff.size, diff.size), diff)
+plt.show()
+
+rt_resampling_output = np.zeros(44100 * 4, dtype='d')
+StandardOscillator(43.65, 0.0, 0.5).render(rt_resampling_output)
+RealTimeResamplingOscillator(43.65, 3.0, 0.5).render(rt_resampling_output)
+plt.plot(np.linspace(0, rt_resampling_output.size, rt_resampling_output.size),
+        rt_resampling_output)
 plt.show()
