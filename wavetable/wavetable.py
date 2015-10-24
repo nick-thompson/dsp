@@ -36,11 +36,20 @@ for k in range(1, _num_harmonics + 1):
 normalize(_table)
 normalize(_gibbs_table)
 
-def shape(x):
+def s_curve(x):
     k = 2 * 0.8 / (1.0 - 0.8)
     return (1.0 + k) * x / (1.0 + k * abs(x))
 
+def soft_clip(x):
+    return np.tanh(x)
+
+def cubic_soft_clip(x):
+    return x - pow(x, 3.0) / 4.0
+
+def hard_clip(x):
+    return 0.5 * (abs(x + 0.73) - abs(x - 0.73))
+
 def get(i, gibbs=False):
     if gibbs:
-        return shape(_gibbs_table[i])
-    return shape(_table[i])
+        return s_curve(_gibbs_table[i])
+    return s_curve(_table[i])
