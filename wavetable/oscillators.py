@@ -32,9 +32,9 @@ class StandardOscillator:
         self.level = level
 
     def render(self, buf):
-        index = 0.0
 
         for i in range(buf.size):
+            index = i * self.incr
             read_index = int(floor(index))
             mask = TABLE_SIZE - 1
 
@@ -49,7 +49,6 @@ class StandardOscillator:
             sample = (inv_alpha * left) + (alpha * right)
 
             buf[i] += sample * self.level
-            index += self.incr
 
 
 class ResamplingOscillator:
@@ -82,9 +81,9 @@ class ResamplingOscillator:
         self._standard.render(intermediate)
 
         playback_rate = pow(2, self.detune / 1200.0)
-        playback_index = 0.0
 
         for i in range(buf.size):
+            playback_index = i * playback_rate
             read_index = int(floor(playback_index))
             read_index_left = read_index
             read_index_right = read_index + 1
@@ -99,7 +98,6 @@ class ResamplingOscillator:
             sample = (inv_alpha * left) + (alpha * right)
 
             buf[i] += sample
-            playback_index += playback_rate
 
 
 class RealTimeResamplingOscillator:
@@ -127,9 +125,9 @@ class RealTimeResamplingOscillator:
         mask = TABLE_SIZE - 1
 
         playback_rate = pow(2, self.detune / 1200.0)
-        playback_pointer = 0.0
 
         for i in range(buf.size):
+            playback_pointer = i * playback_rate
             # Let x, y be indeces into what would be the intermediate buffer.
             x = int(floor(playback_pointer))
             y = x + 1
@@ -165,6 +163,5 @@ class RealTimeResamplingOscillator:
             # From above, we now compute Si
             si = (omega * ex) + (theta * ey)
             buf[i] += si * self.level
-            playback_pointer += playback_rate
 
 
