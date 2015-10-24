@@ -9,9 +9,9 @@ Note: oscillators assume a standard sample rate of 44.1kHz.
 """
 
 import numpy as np
+import wavetable
 
 from math import floor
-from wavetable import TABLE_SIZE, table, gibbs_table
 
 class StandardOscillator:
     """
@@ -28,7 +28,7 @@ class StandardOscillator:
         cycles_per_sample = fq / 44100.0
 
         self.freq = fq
-        self.incr = cycles_per_sample * TABLE_SIZE
+        self.incr = cycles_per_sample * wavetable.TABLE_SIZE
         self.level = level
 
     def render(self, buf):
@@ -36,13 +36,13 @@ class StandardOscillator:
         for i in range(buf.size):
             index = i * self.incr
             read_index = int(floor(index))
-            mask = TABLE_SIZE - 1
+            mask = wavetable.TABLE_SIZE - 1
 
             read_index_wrapped_left = read_index & mask
             read_index_wrapped_right = (read_index + 1) & mask
 
-            left = table[read_index_wrapped_left]
-            right = table[read_index_wrapped_right]
+            left = wavetable.get(read_index_wrapped_left)
+            right = wavetable.get(read_index_wrapped_right)
 
             alpha = index - float(read_index)
             inv_alpha = 1.0 - alpha
@@ -72,7 +72,7 @@ class ResamplingOscillator:
 
         self.freq = freq
         self.detune = detune
-        self.incr = cycles_per_sample * TABLE_SIZE
+        self.incr = cycles_per_sample * wavetable.TABLE_SIZE
         self.level = level
         self._standard = StandardOscillator(freq, 0.0, level)
 
@@ -117,12 +117,12 @@ class RealTimeResamplingOscillator:
 
         self.freq = freq
         self.detune = detune
-        self.incr = cycles_per_sample * TABLE_SIZE
+        self.incr = cycles_per_sample * wavetable.TABLE_SIZE
         self.level = level
 
     def render(self, buf):
         table_rate = self.incr
-        mask = TABLE_SIZE - 1
+        mask = wavetable.TABLE_SIZE - 1
 
         playback_rate = pow(2, self.detune / 1200.0)
 
@@ -149,7 +149,8 @@ class RealTimeResamplingOscillator:
             beta = 1.0 - alpha
             a_wrapped = a & mask
             b_wrapped = b & mask
-            ex = (beta * table[a_wrapped]) + (alpha * table[b_wrapped])
+            ex = (beta * wavetable.get(a_wrapped)) + \
+                    (alpha * wavetable.get(b_wrapped))
 
             # Now we need E[y], which we can derive the same way.
             _a = int(floor(table_rate * y))
@@ -158,7 +159,8 @@ class RealTimeResamplingOscillator:
             _beta = 1.0 - _alpha
             _a_wrapped = _a & mask
             _b_wrapped = _b & mask
-            ey = (_beta * table[_a_wrapped]) + (_alpha * table[_b_wrapped])
+            ey = (_beta * wavetable.get(_a_wrapped)) + \
+                    (_alpha * wavetable.get(_b_wrapped))
 
             # From above, we now compute Si
             si = (omega * ex) + (theta * ey)

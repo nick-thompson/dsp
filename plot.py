@@ -1,22 +1,22 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import wavetable.wavetable as wt
 
 from math import floor
-from wavetable.wavetable import table, gibbs_table
 from wavetable.oscillators import StandardOscillator, ResamplingOscillator, RealTimeResamplingOscillator
-from utils import normalize, trim
+from wavetable.utils import normalize, trim
 
 # First, a comparison of the two wave tables. The first is our standard
 # wavetable, the second uses sigma approximation to attenuate the Gibbs
 # phenomenon.
-x = np.linspace(0, 1, num=table.size, dtype='d')
+x = np.linspace(0, 1, num=wt.TABLE_SIZE, dtype='d')
 
 plt.figure()
 plt.subplot(121)
-plt.plot(x, table)
+plt.plot(x, map(wt.get, range(0, wt.TABLE_SIZE)))
 
 plt.subplot(122)
-plt.plot(x, gibbs_table)
+plt.plot(x, map(lambda x: wt.get(x, gibbs=True), range(0, wt.TABLE_SIZE)))
 plt.show()
 
 # Next, we'll show the difference in the waveform produced by using resampling
