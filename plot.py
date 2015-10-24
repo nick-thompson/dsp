@@ -5,21 +5,23 @@ from math import floor
 from wavetable.wavetable import table, gibbs_table
 from wavetable.oscillators import StandardOscillator, ResamplingOscillator, RealTimeResamplingOscillator
 
-def make_diff(a, b, trim, normalize=True):
+def normalize(arr):
     """
-    Calculate and normalize the difference between two audio buffers.
-
-    The `trim` argument specifies what amount of the tail end of the diff
-    to zero out before normalizing.
+    Normalize the values of the input array into the range [-1, 1].
     """
-    _diff = a - b
-    if trim > 0:
-        n = floor(_diff.size / trim)
-        _diff[n:] = 0.0
+    arr /= np.max(np.abs(arr), axis=0)
+    return arr
 
-    if normalize:
-        _diff /= np.max(np.abs(_diff), axis=0)
-    return _diff
+def trim(arr, amt):
+    """
+    Zero out the tail end of the given array.
+
+    The first N frames of the array are left in tact, where N is (1 / amt)
+    percent of the length of arr.
+    """
+    n = floor(arr.size / amt)
+    arr[n:] = 0.0
+    return arr
 
 # First, a comparison of the two wave tables. The first is our standard
 # wavetable, the second uses sigma approximation to attenuate the Gibbs
@@ -34,43 +36,32 @@ plt.subplot(122)
 plt.plot(x, gibbs_table)
 plt.show()
 
-# Next, we'll take a look at the difference in the waveform produced by using
-# resampling to apply the detune parameter.
+# Next, we'll show the difference in the waveform produced by using resampling
+# to apply detune when played next to a similar waveform vs. what I assume is
+# the standard method of applying detune, as described in the oscillators file.
 _x = np.linspace(0, 44100 * 4, 44100 * 4)
 
-detuned_output = np.zeros(44100 * 4, dtype='d')
-StandardOscillator(43.65, 0.0, 0.5).render(detuned_output)
-StandardOscillator(43.65, 3.0, 0.5).render(detuned_output)
+ss = np.zeros(44100 * 4, dtype='d')
+StandardOscillator(43.65, 0.0, 0.5).render(ss)
+StandardOscillator(43.65, 3.0, 0.5).render(ss)
 
-detuned_resampling_output = np.zeros(44100 * 4, dtype='d')
-StandardOscillator(43.65, 0.0, 0.5).render(detuned_resampling_output)
-ResamplingOscillator(43.65, 3.0, 0.5).render(detuned_resampling_output)
+rs = np.zeros(44100 * 4, dtype='d')
+StandardOscillator(43.65, 0.0, 0.5).render(rs)
+ResamplingOscillator(43.65, 3.0, 0.5).render(rs)
 
-_a = make_diff(detuned_resampling_output, detuned_output, pow(2, 3 / 1200.0))
-
-plt.plot(_x, _a)
+plt.plot(_x, normalize(trim(rs - ss, pow(2, 3 / 1200.0))))
 plt.show()
 
-# Now, we'll look at the same difference but this time using the real time
-# resampling oscillator. In theory the result should be the same.
-rt_resampling_output = np.zeros(44100 * 4, dtype='d')
-StandardOscillator(43.65, 0.0, 0.5).render(rt_resampling_output)
-RealTimeResamplingOscillator(43.65, 3.0, 0.5).render(rt_resampling_output)
+# Now, to show that we can introduce the same artifacts in real time, we'll
+# show that the output of the ResamplingOscillator and the
+# RealTimeResamplingOscillator are actually the same.
+rs = np.zeros(44100 * 4, dtype='d')
+ResamplingOscillator(43.65, 3.0, 1.0).render(rs)
 
-_b = make_diff(rt_resampling_output, detuned_output, 0)
+rt = np.zeros(44100 * 4, dtype='d')
+RealTimeResamplingOscillator(43.65, 3.0, 1.0).render(rt)
+trim(rt, pow(2, 3 / 1200.0))
 
-plt.plot(_x, _b)
-plt.show()
-
-# Now to show whether the differences are in fact the same, we plot the
-# difference between the two diff arrays.
-_c = make_diff(_a, _b, pow(2, 3 / 1200.0), normalize=False)
-
-# Interesting numbers here... I'm guessing floating point rounding error? But
-# the upwards trend on the graph suggests something could be going wrong in
-# the real time algorithm.
-print np.sum(_c)
-print np.sum(_c) / _c.size
-
-plt.plot(_x, _c)
+assert np.allclose(rs, rt)
+plt.plot(_x, rs - rt)
 plt.show()
