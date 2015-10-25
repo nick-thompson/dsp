@@ -36,20 +36,35 @@ for k in range(1, _num_harmonics + 1):
 normalize(_table)
 normalize(_gibbs_table)
 
-def s_curve(x):
-    k = 2 * 0.8 / (1.0 - 0.8)
+def _shape(x):
+    """
+    A fairly simple waveshaping transfer function used to apply distortion to
+    wavetable output.
+
+    Softer saturation curves are similarly simple:
+        f(x) = np.tanh(x)
+        f(x) - x - pow(x, 3.0) / 4.0
+
+    Hard clipping,
+        f(x) = 0.5 * (abs(x + 0.73) - abs(x - 0.73))
+    is a possibility here as well, though I avoid it in this
+    implementation specifically because I haven't implemented a lowpass filter
+    to help tame the effects of hard clipping.
+    """
+    amount = 0.8
+    k = 2 * amount / (1.0 - amount)
     return (1.0 + k) * x / (1.0 + k * abs(x))
 
-def soft_clip(x):
-    return np.tanh(x)
-
-def cubic_soft_clip(x):
-    return x - pow(x, 3.0) / 4.0
-
-def hard_clip(x):
-    return 0.5 * (abs(x + 0.73) - abs(x - 0.73))
-
 def get(i, gibbs=False):
+    """
+    A proxy function for retrieving values from the wavetables themselves.
+
+    Enables functionality such as applying the transfer function on an
+    element-wise basis without mutating the underlying wavetable. Imagine,
+    for example, this were a real time synthesizer, you would want the `amount`
+    parameter in the `_shape` function to be configurable and automatable
+    without having to redraw wavetables for every change.
+    """
     if gibbs:
-        return s_curve(_gibbs_table[i])
-    return s_curve(_table[i])
+        return _shape(_gibbs_table[i])
+    return _shape(_table[i])

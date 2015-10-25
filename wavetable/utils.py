@@ -1,3 +1,7 @@
+"""
+Module for utility functions on Numpy arrays.
+"""
+
 import numpy as np
 
 from math import floor
