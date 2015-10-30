@@ -30,7 +30,7 @@ MAX_PARTIALS = TABLE_SIZE / 2
 # generating NUM_RANGES * TABLE_SIZE data for the sine wave type as well, just
 # to make array access sane. Before outputting the binary result, we'll slice
 # the appropriate array size.
-data = np.zeros(NUM_TYPES * NUM_RANGES * TABLE_SIZE)
+data = np.zeros(NUM_TYPES * NUM_RANGES * TABLE_SIZE, dtype='d')
 
 def normalize(arr):
     """
@@ -56,7 +56,7 @@ def gen_sine(order = 0):
     table = np.sin(2 * np.pi * t)
 
     offset = (NUM_RANGES - 1) * TABLE_SIZE
-    data[offset:offset + TABLE_SIZE] = table.astype('f')
+    data[offset:offset + TABLE_SIZE] = table
 
 def gen_triangle(order = 1):
     """
@@ -84,7 +84,7 @@ def gen_triangle(order = 1):
 
         normalize(table)
         offset = order * NUM_RANGES * TABLE_SIZE + i * TABLE_SIZE
-        data[offset:offset + TABLE_SIZE] = table.astype('f')
+        data[offset:offset + TABLE_SIZE] = table
     pass
 
 def gen_sawtooth(order = 2):
@@ -110,7 +110,7 @@ def gen_sawtooth(order = 2):
 
         normalize(table)
         offset = order * NUM_RANGES * TABLE_SIZE + i * TABLE_SIZE
-        data[offset:offset + TABLE_SIZE] = table.astype('f')
+        data[offset:offset + TABLE_SIZE] = table
 
 def gen_square(order = 3):
     """
@@ -137,7 +137,7 @@ def gen_square(order = 3):
 
         normalize(table)
         offset = order * NUM_RANGES * TABLE_SIZE + i * TABLE_SIZE
-        data[offset:offset + TABLE_SIZE] = table.astype('f')
+        data[offset:offset + TABLE_SIZE] = table
 
 if __name__ == '__main__':
     gen_sine()
@@ -163,4 +163,8 @@ if __name__ == '__main__':
 
     offset = (NUM_RANGES - 1) * TABLE_SIZE
     output = data[offset:]
-    output.tofile('wavetable.data')
+
+    # Scale the output into little-endian 32-bit signed integers.
+    factor = 2**31 - 1
+    scaled = (output * factor).astype('<i4')
+    scaled.tofile('wavetable.data')
