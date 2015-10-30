@@ -163,4 +163,4 @@ if __name__ == '__main__':
 
     offset = (NUM_RANGES - 1) * TABLE_SIZE
     output = data[offset:]
-    output.tofile('wavetable_data.bin')
+    output.tofile('wavetable.data')
