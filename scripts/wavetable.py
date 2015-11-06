@@ -10,7 +10,7 @@ size 4096 samples for high quality rendering and to accommodate the large number
 of partials in the lower end of the frequency range.
 
 This process is carried out once for each of four wave types: sine, triangle,
-sawtooth, and square. To save space, we only generate a single sine wavetable.
+sawtooth, and square.
 """
 
 import numpy as np
@@ -26,10 +26,6 @@ SAMPLE_RATE = 44100.0
 NYQUIST = SAMPLE_RATE / 2.0
 MAX_PARTIALS = TABLE_SIZE / 2
 
-# Optimizing for correctness over performance, we'll pretend here that we're
-# generating NUM_RANGES * TABLE_SIZE data for the sine wave type as well, just
-# to make array access sane. Before outputting the binary result, we'll slice
-# the appropriate array size.
 data = np.zeros(NUM_TYPES * NUM_RANGES * TABLE_SIZE, dtype='d')
 
 def normalize(arr):
@@ -48,15 +44,13 @@ def note_to_freq(note):
 def gen_sine(order = 0):
     """
     Writes the sine wavetable into `data`.
-
-    Because we anticipate slicing the beginning of the data array, we only write
-    a single sine wave into the 128th wavetable slot in the data array.
     """
-    t = np.linspace(0, 1, num=TABLE_SIZE, dtype='d')
-    table = np.sin(2 * np.pi * t)
+    for i in range(NUM_RANGES):
+        t = np.linspace(0, 1, num=TABLE_SIZE, dtype='d')
+        table = np.sin(2 * np.pi * t)
 
-    offset = (NUM_RANGES - 1) * TABLE_SIZE
-    data[offset:offset + TABLE_SIZE] = table
+        offset = order * NUM_RANGES * TABLE_SIZE + i * TABLE_SIZE
+        data[offset:offset + TABLE_SIZE] = table
 
 def gen_triangle(order = 1):
     """
@@ -161,10 +155,7 @@ if __name__ == '__main__':
     #   plt.draw()
     #   time.sleep(0.05)
 
-    offset = (NUM_RANGES - 1) * TABLE_SIZE
-    output = data[offset:]
-
     # Scale the output into little-endian 32-bit signed integers.
     factor = 2**31 - 1
-    scaled = (output * factor).astype('<i4')
-    scaled.tofile('wavetable.data')
+    output = (data * factor).astype('<i4')
+    output.tofile('wavetable.data')
