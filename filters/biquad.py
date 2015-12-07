@@ -34,8 +34,8 @@ class BiquadFilter(object):
 
     def process_block(self, input_buffer, output_buffer):
         _len = input_buffer.size
-        _x = np.concatenate(self._x, input_buffer)
-        _y = np.concatenate(self._y, output_buffer)
+        _x = np.concatenate((self._x, input_buffer))
+        _y = np.concatenate((self._y, output_buffer))
 
         for i in range(2, _len):
             sample = (self.b0 / self.a0) * _x[i]     \
@@ -46,7 +46,7 @@ class BiquadFilter(object):
 
             _y[i] = sample
 
-        output_buffer = _y[2:]
+        np.copyto(output_buffer, _y[2:])
         self._x = input_buffer[-2:]
         self._y = output_buffer[-2:]
 
@@ -96,8 +96,11 @@ class AllpassFilter(BiquadFilter):
 
     Parameters:
     fs : Sampling frequency.
-    f0 : Center frequency.
-    Q : Quality.
+    f0 : Center frequency; sets the phase crossing (where the phase response
+         crosses -pi) at f0.
+    Q : Quality; input should be a positive number, with numbers smaller than
+        1.0 greatly reducing the slope of the phase response, and numbers
+        greater than one creating a sharp cliff at f0.
     """
 
     def __init__(self, fs, f0, Q):
