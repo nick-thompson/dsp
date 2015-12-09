@@ -10,13 +10,17 @@ MIDI note renders from a band-limited wavetable with exactly the right number
 of harmonics, for each of the four wave types availabile in
 wavetable/wavetable.py.
 
-N.B.: Most of the implementations I've seen for this use far fewer tables,
+N.B. (1): Most of the implementations I've seen for this use far fewer tables,
 usually something like 3 tables per octave. In that case, you have to be a
 little more careful about mapping note frequencies to the appropriate range, but
 the computational cost there is well worth the memory saved. Additionally, this
 script produces 128 identical tables for the sine wave (because band-limiting a
 sine wave has no effect) for simplicity, which you would never really want to
 do in a high performance plugin.
+
+N.B. (2): The Unix tool `xxd` is really useful for converting the resulting PCM
+file to a C-style array literal, making it very easy to build into your plugin
+binary.
 """
 
 import numpy as np
