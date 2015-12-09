@@ -2,3 +2,4 @@ venv/
 sounds/
 codegen/wavetable.data
 codegen/wavetable_data.h
+mipmap.pcm
