@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from scipy import signal
+from wavetable.oscillators import StandardOscillator, RealTimeResamplingOscillator
+from wavetable.wavetable import WaveType
 
 class BiquadFilter(object):
     """
@@ -50,9 +52,7 @@ class BiquadFilter(object):
         self._x = input_buffer[-2:]
         self._y = output_buffer[-2:]
 
-    def plot(self):
-        f, (ax1, ax2) = plt.subplots(2, sharex=True)
-
+    def plot(self, ax1, ax2, color='c', alpha=1.0):
         w, h = signal.freqz([self.b0, self.b1, self.b2],
                 [self.a0, self.a1, self.a2])
 
@@ -60,10 +60,10 @@ class BiquadFilter(object):
         x = w * 44100 / (2 * np.pi)
 
         # Plot amplitude response on the dB scale.
-        ax1.plot(x,  20 * np.log10(abs(h)), color='c')
+        ax1.plot(x,  20 * np.log10(abs(h)), color=color, alpha=alpha)
 
         # Plot phase response in radians.
-        ax2.plot(x, np.unwrap(np.angle(h)), color='c')
+        ax2.plot(x, np.unwrap(np.angle(h)), color=color, alpha=alpha)
 
         ax1.set_title('Amplitude Response (dB)')
         ax2.set_title('Phase Response (radians)')
@@ -85,8 +85,6 @@ class BiquadFilter(object):
 
         ax1.grid()
         ax2.grid()
-
-        plt.show()
 
 
 class AllpassFilter(BiquadFilter):
@@ -118,5 +116,48 @@ class AllpassFilter(BiquadFilter):
 
 
 if __name__ == '__main__':
-    apf = AllpassFilter(44100, 8040, 1.0)
-    apf.plot()
+    # Show the frequency response as we move the cutoff frequency.
+    _, (ax1, ax2) = plt.subplots(2, sharex=True)
+
+    for i in range(220, 22000, 4000):
+        apf = AllpassFilter(44100, i, 1.0)
+        apf.plot(ax1, ax2, 'c', float(i) / 22000)
+
+    plt.show()
+
+    # Show the frequency response as we move the Q factor.
+    _, (ax1, ax2) = plt.subplots(2, sharex=True)
+
+    for i in np.linspace(0.2, 2.0, 5):
+        apf = AllpassFilter(44100, 8220, i)
+        apf.plot(ax1, ax2, 'c', float(i) / 2.0)
+
+    plt.show()
+
+    # Now we'll take a look at how this allpass filter affects the waveform
+    # of an input signal so we can compare it with how the drop-sample
+    # interpolation filter of the ResamplingOscillator.
+    fs = 44100
+    duration = 1
+    size = fs * duration
+
+    x = np.linspace(0, size, size)
+
+    ss = np.zeros(size, dtype='d')
+    StandardOscillator(WaveType.SAWTOOTH, 43.65, 3.0, 1.0).render(ss)
+
+    rs = np.zeros(size, dtype='d')
+    RealTimeResamplingOscillator(WaveType.SAWTOOTH, 43.65, 3.0, 1.0).render(rs)
+
+    ap = np.zeros(size, dtype='d')
+    apf = AllpassFilter(44100, 18000, 0.1)
+    apf.process_block(ss, ap)
+
+    plt.figure()
+    plt.subplot(211)
+    plt.plot(x, rs - ss)
+
+    plt.subplot(212)
+    plt.plot(x, ap - ss)
+
+    plt.show()
