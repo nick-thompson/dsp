@@ -26,16 +26,10 @@ binary.
 import numpy as np
 
 from wavetable import wavetable
-from wavetable.utils import normalize
+from wavetable.utils import normalize, note_to_freq, write_pcm
 
 NUM_RANGES = 128
 NUM_TYPES = 4
-
-def note_to_freq(note):
-    """
-    Return the frequency value for a given MIDI note value.
-    """
-    return 440.0 * pow(2.0, (note - 69) / 12.0)
 
 if __name__ == '__main__':
     tables = []
@@ -46,9 +40,4 @@ if __name__ == '__main__':
             tables.append(table)
 
     mipmap = np.concatenate(tables)
-
-    # Scale the output into little-endian 32-bit signed integers.
-    factor = 2**31 - 1
-    output = (mipmap * factor).astype('<i4')
-    output.tofile('mipmap.pcm')
-
+    write_pcm('mipmap.pcm', mipmap)

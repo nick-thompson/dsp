@@ -19,7 +19,7 @@ import numpy as np
 import time
 
 from math import floor
-from utils import normalize
+from utils import normalize, note_to_freq
 
 TABLE_SIZE = 4096
 
@@ -106,12 +106,6 @@ def _square(fq):
 
     return normalize(table)
 
-def _note_to_freq(note):
-    """
-    Return the frequency value for a given MIDI note value.
-    """
-    return 440.0 * pow(2.0, (note - 69) / 12.0)
-
 def build(wavetype, fq):
     """
     Public API for constructing a band-limited wavetable.
@@ -139,7 +133,7 @@ if __name__ == '__main__':
     for i in range(4):
         # Span the MIDI range in steps of 16 notes.
         for j in range(0, 129, 16):
-            fq = _note_to_freq(j)
+            fq = note_to_freq(j)
             table = build(i, fq)
             plt.clf()
             plt.plot(x, table)
