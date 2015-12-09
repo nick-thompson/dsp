@@ -16,7 +16,7 @@ def normalize(arr):
 
 def trim(arr, amt):
     """
-    Zero out the tail end of the given array.
+    Zero out the tail end of the given array in place.
 
     The first N frames of the array are left in tact, where N is (1 / amt)
     percent of the length of arr.

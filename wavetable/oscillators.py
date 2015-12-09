@@ -8,10 +8,12 @@ of examining the resulting differences in the output buffers.
 Note: oscillators assume a standard sample rate of 44.1kHz.
 """
 
+import matplotlib.pyplot as plt
 import numpy as np
 import wavetable
 
 from math import floor
+from utils import normalize, trim
 
 class StandardOscillator:
     """
@@ -60,12 +62,26 @@ class ResamplingOscillator:
 
     In particular, this oscillator draws an intermediate buffer before rendering
     its true output. This is so that the frequency value can be used to render
-    a waveform independent of the detune parameter, then we resample the
-    intermediate buffer to accommodate the detune value.
+    a waveform independent of the detune parameter, then the detuned output
+    can be computed using an interpolated drop-sample lookup on the intermediate
+    buffer.
 
-    This approach introduces phase artifacts that, when played back next to a
-    different, slightly out of tune, sawtooth wave, creates an interesting
-    zipper-like characteristic in the sound.
+    This interpolated lookup can be thought of as a FIR filter with its own
+    frequency response, but because the interpolation factor changes with every
+    output sample, the frequency response is modulating with time. This
+    modulation yields artifacts in the resulting output that cause a particular
+    phasing interaction when played next to another detuned sawtooth wave (this
+    effect is the sound I'm after here).
+
+    N.B. (1): At the time of writing, this is how the Chromium implementation of
+    the Web Audio API handles detuning fixed buffers. Whether or not this is
+    standard practice in other audio engines, I don't know, but I think it's
+    clear that a higher-order interpolator would produce a more accurate output,
+    meaning fewer interesting artifacts.
+
+    N.B.(2): Take a look at filters/lerp.py for a plot of the frequency response
+    of a simple first-order linear interpolation filter at different
+    interpolation factors.
     """
 
     def __init__(self, wavetype, freq, detune, level):
@@ -169,3 +185,33 @@ class RealTimeResamplingOscillator:
             buf[i] += si * self.level
 
 
+if __name__ == '__main__':
+    # Here we examine the difference in the waveform produced by the
+    # StandardOscillator vs. the waveform produced by the ResamplingOscillator.
+    fs = 44100
+    duration = 1
+    size = fs * duration
+    saw_type = wavetable.WaveType.SAWTOOTH
+
+    x = np.linspace(0, size, size)
+
+    ss = np.zeros(size, dtype='d')
+    StandardOscillator(saw_type, 43.65, 3.0, 1.0).render(ss)
+
+    rs = np.zeros(size, dtype='d')
+    ResamplingOscillator(saw_type, 43.65, 3.0, 1.0).render(rs)
+
+    plt.plot(x, trim(rs - ss, pow(2, 3 / 1200.0)))
+    plt.show()
+
+    # Now, to show that we can introduce the same artifacts in real time, we'll
+    # show that the output of the ResamplingOscillator and the
+    # RealTimeResamplingOscillator are actually the same.
+    rt = np.zeros(size, dtype='d')
+    RealTimeResamplingOscillator(saw_type, 43.65, 3.0, 1.0).render(rt)
+
+    trim(rt, pow(2, 3 / 1200.0))
+
+    assert np.allclose(rs, rt)
+    plt.plot(x, rs - rt)
+    plt.show()
