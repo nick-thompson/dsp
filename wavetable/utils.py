@@ -8,7 +8,7 @@ from math import floor
 
 def normalize(arr):
     """
-    Normalize the values of the input array into the range [-1, 1].
+    Normalize the values of the input array into the range [-1, 1] in place.
     """
     arr /= np.max(np.abs(arr), axis=0)
     return arr

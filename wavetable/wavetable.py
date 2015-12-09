@@ -1,70 +1,149 @@
 """
-Module for generating band-limited sawtooth wavetables.
+Module for generating band-limited sine, triangle, sawtooth, and square
+wavetables.
 
-For the sake of this project, we're looking only at the results in the low
-end of the frequency spectrum. Our oscillators will be used to produce bass
-notes near F1, or 43.65Hz. Thus only one band-limited wavetable should suffice
-for the note ranges we're interested in.
+Construction is done with additive synthesis, including partials just up to
+Nyquist so as to avoid aliasing, with no accommodation for the Gibbs Phenomenon.
 
-To be safe, we'll assume our oscillators won't produce frequencies higher than
-50Hz. At 50Hz, 441 harmonics can be drawn before aliasing occurs. Thus we build
-one wavetable of size 1024 sample frames with 441 harmonics here via additive
-synthesis. We'll build another, almost identical, wavetable which applies a
-slight dampening to the partials to attenuate the Gibbs phenomenon.
+Note that the table size and the sample rate in this implementation are fixed,
+where in practice they should likely be configurable. In particular, it's often
+a good idea to reduce the size of the wavetable for the higher frequency tables,
+because in a larger table the iterator (when rendering from the table) ends up
+really big. Each read, then, could essentially be considered a random access.
+Depending on the host's paging and caching architecture, this can be a large
+performance hit.
 """
 
+import matplotlib.pyplot as plt
 import numpy as np
+import time
 
+from math import floor
 from utils import normalize
 
-TABLE_SIZE = 1024
+TABLE_SIZE = 4096
 
-_t = np.linspace(0, 1, num=TABLE_SIZE, dtype='d')
-_num_harmonics = 441
+SAMPLE_RATE = 44100.0
+NYQUIST = SAMPLE_RATE / 2.0
+MAX_PARTIALS = TABLE_SIZE / 2
 
-_table = np.zeros(TABLE_SIZE, dtype='d')
-_gibbs_table = np.zeros(TABLE_SIZE, dtype='d')
-
-# Fill the wavetables via additive synthesis
-for k in range(1, _num_harmonics + 1):
-    _table -= np.sin(2 * np.pi * k * _t) / (k * np.pi)
-
-    # Dampen the kth partial in the _gibbs_table using the Lanczos sigma factor.
-    sigma = np.sinc(k * np.pi / (2 * _num_harmonics))
-    _gibbs_table -= np.sin(2 * np.pi * k * _t) / (k * np.pi) * sigma
-
-normalize(_table)
-normalize(_gibbs_table)
-
-def _shape(x):
+class WaveType:
     """
-    A fairly simple waveshaping transfer function used to apply distortion to
-    wavetable output.
-
-    Softer saturation curves are similarly simple:
-        f(x) = np.tanh(x)
-        f(x) - x - pow(x, 3.0) / 4.0
-
-    Hard clipping,
-        f(x) = 0.5 * (abs(x + 0.73) - abs(x - 0.73))
-    is a possibility here as well, though I avoid it in this
-    implementation specifically because I haven't implemented a lowpass filter
-    to help tame the effects of hard clipping.
+    A hacky enum encapsulating the various wave types.
     """
-    amount = 0.8
-    k = 2 * amount / (1.0 - amount)
-    return (1.0 + k) * x / (1.0 + k * abs(x))
+    SINE = 0
+    TRIANGLE = 1
+    SAWTOOTH = 2
+    SQUARE = 3
 
-def get(i, gibbs=False):
+def _sine():
     """
-    A proxy function for retrieving values from the wavetables themselves.
+    Returns a sine wavetable.
+    """
+    t = np.linspace(0, 1, num=TABLE_SIZE, dtype='d')
+    table = np.sin(2 * np.pi * t)
+    return normalize(table)
 
-    Enables functionality such as applying the transfer function on an
-    element-wise basis without mutating the underlying wavetable. Imagine,
-    for example, this were a real time synthesizer, you would want the `amount`
-    parameter in the `_shape` function to be configurable and automatable
-    without having to redraw wavetables for every change.
+def _triangle(fq):
     """
-    if gibbs:
-        return _shape(_gibbs_table[i])
-    return _shape(_table[i])
+    Returns a band-limited triangle wavetable.
+
+    Parameters
+    fq : Frequency used to determine the number of bands drawn in the table.
+    """
+    num_partials = min(int(floor(NYQUIST / fq)), MAX_PARTIALS)
+
+    t = np.linspace(0, 1, num=TABLE_SIZE, dtype='d')
+    table = np.zeros(TABLE_SIZE, dtype='d')
+    alt = -1.0
+
+    for j in range(num_partials):
+        k = j + 1
+        if k % 2 == 0:
+            continue
+
+        alt *= -1
+        table -= np.sin(2 * np.pi * k * t) / (alt * k * k * np.pi)
+
+    return normalize(table)
+
+def _sawtooth(fq):
+    """
+    Returns a band-limited sawtooth wavetable.
+
+    Parameters
+    fq : Frequency used to determine the number of bands drawn in the table.
+    """
+    num_partials = min(int(floor(NYQUIST / fq)), MAX_PARTIALS)
+
+    t = np.linspace(0, 1, num=TABLE_SIZE, dtype='d')
+    table = np.zeros(TABLE_SIZE, dtype='d')
+
+    for j in range(num_partials):
+        k = j + 1
+        table -= np.sin(2 * np.pi * k * t) / (k * np.pi)
+
+    return normalize(table)
+
+def _square(fq):
+    """
+    Returns a band-limited square wavetable.
+
+    Parameters
+    fq : Frequency used to determine the number of bands drawn in the table.
+    """
+    num_partials = min(int(floor(NYQUIST / fq)), MAX_PARTIALS)
+
+    t = np.linspace(0, 1, num=TABLE_SIZE, dtype='d')
+    table = np.zeros(TABLE_SIZE, dtype='d')
+
+    for j in range(num_partials):
+        k = j + 1
+        if k % 2 == 0:
+            continue
+
+        table -= np.sin(2 * np.pi * k * t) / (k * np.pi)
+
+    return normalize(table)
+
+def _note_to_freq(note):
+    """
+    Return the frequency value for a given MIDI note value.
+    """
+    return 440.0 * pow(2.0, (note - 69) / 12.0)
+
+def build(wavetype, fq):
+    """
+    Public API for constructing a band-limited wavetable.
+
+    Parameters
+    wavetype : WaveType specifying the type of table to be constructed.
+    fq : Frequency used to determine the number of bands drawn in the table.
+    """
+    if wavetype == WaveType.SINE:
+        return _sine()
+    elif wavetype == WaveType.TRIANGLE:
+        return _triangle(fq)
+    elif wavetype == WaveType.SAWTOOTH:
+        return _sawtooth(fq)
+    elif wavetype == WaveType.SQUARE:
+        return _square(fq)
+    else:
+        raise Exception('Unrecognized WaveType.')
+
+if __name__ == '__main__':
+    # Show an interactive plot of the band-limited tables.
+    x = np.linspace(0, 1, num=TABLE_SIZE, dtype='d')
+
+    plt.ion()
+    for i in range(4):
+        # Span the MIDI range in steps of 16 notes.
+        for j in range(0, 129, 16):
+            fq = _note_to_freq(j)
+            table = build(i, fq)
+            plt.clf()
+            plt.plot(x, table)
+            plt.draw()
+            time.sleep(0.15)
+
+    plt.ioff()

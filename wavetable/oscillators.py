@@ -22,7 +22,7 @@ class StandardOscillator:
     given its detune value before stepping through the wavetable.
     """
 
-    def __init__(self, freq, detune, level):
+    def __init__(self, wavetype, freq, detune, level):
         detune_ratio = pow(2, detune / 1200.0)
         fq = freq * detune_ratio
         cycles_per_sample = fq / 44100.0
@@ -30,6 +30,7 @@ class StandardOscillator:
         self.freq = fq
         self.incr = cycles_per_sample * wavetable.TABLE_SIZE
         self.level = level
+        self.table = wavetable.build(wavetype, freq)
 
     def render(self, buf):
 
@@ -41,8 +42,8 @@ class StandardOscillator:
             read_index_wrapped_left = read_index & mask
             read_index_wrapped_right = (read_index + 1) & mask
 
-            left = wavetable.get(read_index_wrapped_left)
-            right = wavetable.get(read_index_wrapped_right)
+            left = self.table[read_index_wrapped_left]
+            right = self.table[read_index_wrapped_right]
 
             alpha = index - float(read_index)
             inv_alpha = 1.0 - alpha
@@ -67,14 +68,14 @@ class ResamplingOscillator:
     zipper-like characteristic in the sound.
     """
 
-    def __init__(self, freq, detune, level):
+    def __init__(self, wavetype, freq, detune, level):
         cycles_per_sample = freq / 44100.0
 
         self.freq = freq
         self.detune = detune
         self.incr = cycles_per_sample * wavetable.TABLE_SIZE
         self.level = level
-        self._standard = StandardOscillator(freq, 0.0, level)
+        self._standard = StandardOscillator(wavetype, freq, 0.0, level)
 
     def render(self, buf):
         intermediate = np.zeros(buf.size, dtype='d')
@@ -112,13 +113,14 @@ class RealTimeResamplingOscillator:
     shown in the render method of the ResamplingOscillator.
     """
 
-    def __init__(self, freq, detune, level):
+    def __init__(self, wavetype, freq, detune, level):
         cycles_per_sample = freq / 44100.0
 
         self.freq = freq
         self.detune = detune
         self.incr = cycles_per_sample * wavetable.TABLE_SIZE
         self.level = level
+        self.table = wavetable.build(wavetype, freq)
 
     def render(self, buf):
         table_rate = self.incr
@@ -149,8 +151,8 @@ class RealTimeResamplingOscillator:
             beta = 1.0 - alpha
             a_wrapped = a & mask
             b_wrapped = b & mask
-            ex = (beta * wavetable.get(a_wrapped)) + \
-                    (alpha * wavetable.get(b_wrapped))
+            ex = (beta * self.table[a_wrapped]) + \
+                    (alpha * self.table[b_wrapped])
 
             # Now we need E[y], which we can derive the same way.
             _a = int(floor(table_rate * y))
@@ -159,8 +161,8 @@ class RealTimeResamplingOscillator:
             _beta = 1.0 - _alpha
             _a_wrapped = _a & mask
             _b_wrapped = _b & mask
-            ey = (_beta * wavetable.get(_a_wrapped)) + \
-                    (_alpha * wavetable.get(_b_wrapped))
+            ey = (_beta * self.table[_a_wrapped]) + \
+                    (_alpha * self.table[_b_wrapped])
 
             # From above, we now compute Si
             si = (omega * ex) + (theta * ey)
