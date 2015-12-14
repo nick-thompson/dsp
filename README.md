@@ -1,23 +1,21 @@
-# wavetable
+# dsp
 
-> A small experiment with linear interpolation in wavetable synthesis.
+> A collection of digital signal processing concepts explored in Python.
 
-This project serves largely as a proof of concept implementation of what I believe to be an "alternative"
-approach to linear interpolation in wavetable synthesis. I say "alternative" because it may well have been done
-before, and it may well be a silly idea!
+Without the full backstory, this repository is probably very convoluted. The work here follows from an exploration
+of sound design in Web Audio, which I wrote about
+[on my blog](http://nickwritesablog.com/sound-design-in-web-audio-neurofunk-bass-part-1/). If you're interested,
+I suggest you start there and read through the short series.
 
-The idea here builds upon a previous exploration of sound design and audio synthesis which I wrote about
-[on my blog](http://nickwritesablog.com/sound-design-in-web-audio-neurofunk-bass-part-1/) (see part two), and for
-which the code is also available here on my GitHub profile, in a project named
-[neuro](https://github.com/nick-thompson/neuro). In particular, it examines the phase artifacts introduced by using
-resampling to produce a detuned pair of sawtooth waveforms, and how those artifacts might be rendered in real time.
-Ultimately, I intend to use the results of this experiment in building a VST software synthesizer capable of
-generating this "gritty" detuned output.
+In particular, the concepts covered here revolve around an examination of the phasing, flanging characteristics of
+the old school Drum n' Bass reese bass, and the application of those characteristics in modern sound design. 
+That bit is explained in the blog series mentioned above. I continued down this path in search of a way to render
+these characteristics in real time, learning and exploring as much of the digital signal processing world as I
+could to answer such a question. That led me first into wavetable synthesis, and more recently into the more simple
+digital filters.
 
-I also hope for this project to serve as a well-written, well-documented reference implementation for wavetable
-synthesis in Python, because the subject has a lot of interesting details and nuances that are not necessarily
-easy for someone new to audio programming to come across. So with that in mind, if you feel any part of the code
-is poorly written, missing important details, or could be better explained in the comments, please open an issue!
+Many of the modules written here are well documented, and can be invoked directly (e.g. `python -m filters.allpass`)
+to visualize characteristics of the module and help explain its purpose.
 
 ## License
 
